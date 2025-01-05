@@ -16,7 +16,7 @@ from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler, OneHotEncoder, LabelEncoder
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.inspection import DecisionBoundaryDisplay
-from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold, StratifiedGroupKFold, KFold, TimeSeriesSplit, GroupKFold, GroupShuffleSplit, train_test_split, GridSearchCV
+from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold, StratifiedGroupKFold, KFold, TimeSeriesSplit, GroupKFold, GroupShuffleSplit, train_test_split, LeaveOneOut, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.compose import ColumnTransformer
 
@@ -319,28 +319,33 @@ def preprocess_data(df, target_column):
     """
     Preprocess the data by encoding categorical variables, and scaling features.
     """
+    # Display general information about the dataset
+    get_info(df)
+
+    # Plot the distribution of the target variable
+    plot_class_distribution(df, target_column)
+
+    # Drop rows with missing values
+    df = dropna(df)
+
+    # Encode categorical variables
+    df, encoders = encode_categorical(df, encoding_type='OneHotEncoder')
+
+    # Split the dataset into features and target
+    X, y = split_feature_label(df, target_column)
+
+    # Split the dataset into training and testing sets
+    splits = split_train_test(X, y, method='train_test_split', test_size=0.2, random_state=42)
+
+    # Scale the features
+    X_train_scaled, X_test_scaled = scale_features(splits[0][0], splits[0][1], scaler_type='StandardScaler')
+
+    return X_train_scaled, X_test_scaled, splits[0][2], splits[0][3], encoders
 
 
-    # Separate features and target
-    X = df.drop(target_column, axis=1)
-    y = df[target_column]
-
-    # Scale features
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
-    return X_scaled, y, scaler, label_encoders
 
 
 
-
-
-
-def split_data(X, y, test_size=0.2, random_state=42):
-    """
-    Split the data into training and testing sets.
-    """
-    return train_test_split(X, y, test_size=test_size, random_state=random_state)
 
 def evaluate_model(y_true, y_pred):
     """
