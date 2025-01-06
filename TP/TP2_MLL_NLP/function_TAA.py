@@ -173,23 +173,31 @@ def encode_categorical(df: pd.DataFrame, encoding_type='LabelEncoder'):
 
 
 
-def split_feature_label(df: pd.DataFrame, target_column):
+def split_feature_label(df: pd.DataFrame, target_column, multilabel=False):
     """
     Split the dataset into features and target.
-    
+
     Parameters:
     df (pd.DataFrame): The dataframe containing the dataset.
-    target_column (str): The name of the target column.
-    
+    target_column (str or list): The name(s) of the target column(s).
+    multilabel (bool): Whether to handle multiple target columns.
+
     Returns:
     pd.DataFrame: The dataframe containing the features.
-    pd.Series: The series containing the target.
+    pd.DataFrame or pd.Series: The dataframe or series containing the target.
     """
-    X = df.drop(target_column, axis=1)
-    y = df[target_column]
+    if multilabel:
+        # Vérifier que target_column est une liste
+        if not isinstance(target_column, list):
+            raise ValueError("Pour multilabel=True, 'target_column' doit être une liste.")
+        X = df.drop(target_column, axis=1)
+        y = df[target_column]  # Renvoyer un DataFrame pour les multi-labels
+    else:
+        X = df.drop(target_column, axis=1)
+        y = df[target_column]  # Renvoyer une Series pour un seul label
 
     print(f"Les features sont dans le dataframe X ({X.shape[0]} lignes, {X.shape[1]} colonnes).")
-    print(f"La target est dans la série y ({y.shape[0]} éléments).")
+    print(f"La target est dans {'le dataframe' if multilabel else 'la série'} y ({y.shape[0]} lignes, {y.shape[1] if multilabel else 1} colonnes).")
 
     return X, y
 
