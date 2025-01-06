@@ -29,6 +29,11 @@ from imblearn.combine import SMOTEENN, SMOTETomek
 
 from collections import Counter
 
+import re
+
+import nltk
+from nltk.corpus import stopwords
+# nltk.download()
 
 def load_data(file_path, sep='\t', header=None, names=None):
     """
@@ -352,14 +357,98 @@ def tune_lof(X_train, X_test, y_test, n_neighbors_list):
     return pd.DataFrame(results)
 
 
+#################### TP2 ####################
 
 
+def convert_lowercase(df: pd.DataFrame):
+    """
+    Convert all string columns to lowercase.
+    
+    Parameters:
+    df (pd.DataFrame): The dataframe containing the dataset.
+    
+    Returns:
+    pd.DataFrame: The dataframe with all string columns converted to lowercase.
+    """
+    df = df.applymap(lambda x: x.lower() if isinstance(x, str) else x)
+    return df
 
 
+# Define a function to remove URLs from text
+def remove_urls(df, text):
+
+    # Define a regex pattern to match URLs
+    url_pattern = re.compile(r'https?://\S+')
+
+    def remove_url(text):
+        return url_pattern.sub('', text)
+
+    # Apply the function to the 'text' column and create a new column 'clean_text'
+    text = text.apply(remove_url(df[text]))
+    return text
 
 
+def remove_non_word(df: pd.DataFrame):
+    """
+    Remove non-word characters from the dataset.
+    
+    Parameters:
+    df (pd.DataFrame): The dataframe containing the dataset.
+    
+    Returns:
+    pd.DataFrame: The dataframe with non-word characters removed.
+    """
+    df = df.replace(to_replace=r'[^\w\s]', value='', regex=True)
+    return df
+
+def remove_digits(df: pd.DataFrame):
+    """
+    Remove digits from the dataset.
+    
+    Parameters:
+    df (pd.DataFrame): The dataframe containing the dataset.
+    
+    Returns:
+    pd.DataFrame: The dataframe with digits removed.
+    """
+    df = df.replace(to_replace=r'\d', value='', regex=True)
+    return df
+
+def remove_stopwords(text):
+    """
+    Remove stopwords from the text.
+    
+    Parameters:
+    text (str): The text to process.
+    
+    Returns:
+    str: The text with stopwords removed.
+    """
+    # Tokenize the text
+    words = text.split()
+
+    # Remove stopwords
+    words = [word for word in words if word not in stopwords.words('english')]
+
+    # Join the words back into a single string
+    return ' '.join(words)
 
 
+def clean_text(df: pd.DataFrame, text_column):
+    """
+
+    """
+    df = convert_lowercase(df)
+
+    #df[text_column] = remove_urls(df, df[text_column])
+
+    df = remove_non_word(df)
+
+    df = remove_digits(df)
+
+    df[text_column] = df[text_column].apply(remove_stopwords)
+
+    return df
 
 
 
