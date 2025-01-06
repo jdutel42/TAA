@@ -1,3 +1,7 @@
+#########################################################
+#                      Librairies                       #
+#########################################################
+
 import numpy as np
 np.set_printoptions(threshold=10000, suppress = True)
 
@@ -38,6 +42,12 @@ import nltk
 from nltk.corpus import stopwords
 # nltk.download()
 
+
+
+#########################################################
+#                       Fonctions                       #
+#########################################################
+
 def load_data(file_path, sep='\t', header=None, names=None):
     """
     Load dataset from a CSV file.
@@ -46,10 +56,7 @@ def load_data(file_path, sep='\t', header=None, names=None):
     print(df)
     return df
 
-    
-
-
-
+#########################################################
 
 def get_info(df: pd.DataFrame):
     """
@@ -83,7 +90,7 @@ def get_info(df: pd.DataFrame):
     print("\n")
     return None
 
-
+#########################################################
 
 def plot_class_distribution(df: pd.DataFrame, target_column):
     """
@@ -107,7 +114,7 @@ def plot_class_distribution(df: pd.DataFrame, target_column):
     print(class_percentages)
     return None
 
-
+#########################################################
 
 def dropna(df: pd.DataFrame):
     """
@@ -130,8 +137,7 @@ def dropna(df: pd.DataFrame):
 
     return df
 
-
-
+#########################################################
 
 def encode_categorical(df: pd.DataFrame, encoding_type='LabelEncoder'):
     """
@@ -172,9 +178,7 @@ def encode_categorical(df: pd.DataFrame, encoding_type='LabelEncoder'):
 
     return df, encoders
 
-
-
-
+#########################################################
 
 def split_feature_label(df: pd.DataFrame, target_column, multilabel=False):
     """
@@ -204,7 +208,7 @@ def split_feature_label(df: pd.DataFrame, target_column, multilabel=False):
 
     return X, y
 
-
+#########################################################
 
 def split_train_test(X: pd.DataFrame, y: pd.Series, method='train_test_split', test_size=0.2, random_state=42, n_splits=5, groups=None):
     """
@@ -224,14 +228,31 @@ def split_train_test(X: pd.DataFrame, y: pd.Series, method='train_test_split', t
     """
     if method == 'train_test_split':
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
-        return [(X_train, X_test, y_train, y_test)]
+        print(f"Le dataset a été divisé en training et testing sets avec {test_size*100}% des données dans le testing set.")
+        print(f"X_train : {X_train.shape[0]} lignes, {X_train.shape[1]} colonnes (features)")
+        print(f"X_test : {X_test.shape[0]} lignes, {X_test.shape[1]} colonnes (features)")
+        print(f"y_train : {y_train.shape[0]} lignes, {y_train.shape[1]} colonnes (labels)")
+        print(f"y_test : {y_test.shape[0]} lignes, {y_test.shape[1]} colonnes (labels)")
+        return X_train, X_test, y_train, y_test
     
     elif method == 'stratified_shuffle_split':
         sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+        splits = []
         for train_index, test_index in sss.split(X, y):
             X_train, X_test = X.iloc[train_index], X.iloc[test_index]
             y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-        return [(X_train, X_test, y_train, y_test)]
+            splits.append((X_train, X_test, y_train, y_test))
+
+        print(f"Le dataset a bien été divisé en {n_splits} folds, avec pour chaque fold, X_train, X_test, y_train, y_test.")
+
+        print("split[0], split[1], split[2], split[3] are folds")
+        print("split[0][0] is the X_train set of the first fold,")
+        print("split[0][1] is the X_test set of the first fold,")
+        print("split[0][2] is the y_train set of the first fold,")
+        print("split[0][3] is the y_test set of the first fold")
+        print("etc...")
+
+        return splits
     
     elif method == 'kfold':
         kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
@@ -291,7 +312,7 @@ def split_train_test(X: pd.DataFrame, y: pd.Series, method='train_test_split', t
     else:
         raise ValueError("Invalid method. Choose from 'train_test_split', 'stratified_shuffle_split', 'kfold', 'stratified_kfold', 'leave_one_out', 'group_kfold', or 'time_series_split'.")
 
-
+#########################################################
 
 def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame, scaler_type='StandardScaler'):
     """
@@ -323,6 +344,8 @@ def scale_features(X_train: pd.DataFrame, X_test: pd.DataFrame, scaler_type='Sta
 
     return X_train_scaled, X_test_scaled
 
+#########################################################
+
 #Grid Search sur le nombre d'arbres (n_estimators) et choix du seuil (contamination) 
 def tune_isolation_forest(X_train, X_test, y_test, n_estimators_list, contamination_list):
     """fonction qui explore plusieurs valeurs pour n_estimators et contamination"""
@@ -346,6 +369,8 @@ def tune_isolation_forest(X_train, X_test, y_test, n_estimators_list, contaminat
     
     return pd.DataFrame(results)
 
+#########################################################
+
 # Grid Search sur le nombre de voisins (n_neighbors) et seuils 
 def tune_lof(X_train, X_test, y_test, n_neighbors_list):
     results = []
@@ -367,9 +392,7 @@ def tune_lof(X_train, X_test, y_test, n_neighbors_list):
 
     return pd.DataFrame(results)
 
-
-#################### TP2 ####################
-
+#########################################################
 
 def convert_lowercase(df: pd.DataFrame):
     """
@@ -384,6 +407,7 @@ def convert_lowercase(df: pd.DataFrame):
     df = df.applymap(lambda x: x.lower() if isinstance(x, str) else x)
     return df
 
+#########################################################
 
 # Define a function to remove URLs from text
 def remove_urls(df, text):
@@ -398,6 +422,7 @@ def remove_urls(df, text):
     text = text.apply(remove_url(df[text]))
     return text
 
+#########################################################
 
 def remove_non_word(df: pd.DataFrame):
     """
@@ -412,6 +437,8 @@ def remove_non_word(df: pd.DataFrame):
     df = df.replace(to_replace=r'[^\w\s]', value='', regex=True)
     return df
 
+#########################################################
+
 def remove_digits(df: pd.DataFrame):
     """
     Remove digits from the dataset.
@@ -424,6 +451,8 @@ def remove_digits(df: pd.DataFrame):
     """
     df = df.replace(to_replace=r'\d', value='', regex=True)
     return df
+
+#########################################################
 
 def remove_stopwords(text):
     """
@@ -444,10 +473,11 @@ def remove_stopwords(text):
     # Join the words back into a single string
     return ' '.join(words)
 
+#########################################################
 
 def clean_text(df: pd.DataFrame, text_column):
     """
-
+    Clean the text data by converting to lowercase, removing URLs, non-word characters, digits, and stopwords.
     """
     df = convert_lowercase(df)
 
@@ -461,10 +491,37 @@ def clean_text(df: pd.DataFrame, text_column):
 
     return df
 
+#########################################################
+
+def tfidf_vectorize(X_train, X_test, max_features):
+    """
+    Vectorize the texts using TF-IDF.
+    
+    Parameters:
+    train_texts (list of str): Training text data.
+    test_texts (list of str): Test text data.
+    max_features (int): Maximum number of features for TF-IDF.
+    
+    Returns:
+    X_train (sparse matrix): TF-IDF features for training data.
+    X_test (sparse matrix): TF-IDF features for test data.
+    """
+    vectorizer = TfidfVectorizer(max_features=max_features, stop_words='english')
+    X_train_vec = vectorizer.fit_transform(X_train)
+    X_test_vec = vectorizer.transform(X_test)
+    print(f"Les textes ont été vectorisés en {X_train_vec.shape[1]} features.")
+    print(f"X_train : {X_train_vec.shape[0]} lignes, {X_train_vec.shape[1]} colonnes (features)")
+    print(f"X_test : {X_test_vec.shape[0]} lignes, {X_test_vec.shape[1]} colonnes (features)")
+    return X_train_vec, X_test_vec
 
 
-#################### Fonctions à améliorer ####################
 
+
+
+
+#########################################################
+#                 Fonctions à améliorer                 #
+#########################################################
 
 def choose_scaler(scaler_type='StandardScaler'):
     """
@@ -485,7 +542,7 @@ def choose_scaler(scaler_type='StandardScaler'):
     print(f"Le type de scaler choisis est {scaler_type}.")
     print(f"Les données n'ont pas encore été scalées mais le scaler {scaler_type} est prêt à être utilisé dans la pipeline.")
 
-
+#########################################################
 
 def choose_model(model_type='RandomForestClassifier', random_state=42):
     """
@@ -505,8 +562,7 @@ def choose_model(model_type='RandomForestClassifier', random_state=42):
     print(f"Le modèle choisi est {model_type}.")
     print(f"Les données n'ont pas encore été procéssées mais le modèle {model_type} est prêt à être utilisé dans la pipeline.")
 
-
-
+#########################################################
 
 def choose_splitter_train_test(splitter_type, X, y, n_splits=5, test_size=0.2, random_state=42):
     """
@@ -544,8 +600,7 @@ def choose_splitter_train_test(splitter_type, X, y, n_splits=5, test_size=0.2, r
 
     return splitter
 
-
-    
+#########################################################
 
 def process_and_evaluate(X, y, scaler_type='StandardScaler', model_type='RandomForestClassifier', n_splits=5):
     """
@@ -587,18 +642,7 @@ def process_and_evaluate(X, y, scaler_type='StandardScaler', model_type='RandomF
     
     return results
 
-
-
-
-
-
-
-
-
-
-
-
-
+#########################################################
 
 def preprocess_data(df, target_column):
     """
@@ -627,10 +671,7 @@ def preprocess_data(df, target_column):
 
     return X_train_scaled, X_test_scaled, splits[0][2], splits[0][3], encoders
 
-
-
-
-
+#########################################################
 
 def evaluate_model(y_true, y_pred):
     """
