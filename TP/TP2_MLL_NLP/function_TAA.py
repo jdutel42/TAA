@@ -20,6 +20,9 @@ from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold, Str
 from sklearn.linear_model import LogisticRegression
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
+from sklearn.multioutput import ClassifierChain
+from sklearn.multioutput import MultiOutputClassifier
 
 from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix, accuracy_score, roc_curve, precision_recall_curve, auc, f1_score, recall_score, precision_score
 
