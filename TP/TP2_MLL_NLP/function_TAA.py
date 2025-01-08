@@ -18,17 +18,15 @@ from matplotlib.legend_handler import HandlerPathCollection
 
 from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler, OneHotEncoder, LabelEncoder
-from sklearn.neighbors import LocalOutlierFactor
+from sklearn.neighbors import LocalOutlierFactor, KNeighborsClassifier
 from sklearn.inspection import DecisionBoundaryDisplay
 from sklearn.model_selection import StratifiedShuffleSplit, StratifiedKFold, StratifiedGroupKFold, KFold, TimeSeriesSplit, GroupKFold, GroupShuffleSplit, train_test_split, LeaveOneOut, cross_validate, GridSearchCV
 from sklearn.linear_model import LogisticRegression
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
-from sklearn.multioutput import ClassifierChain
-from sklearn.multioutput import MultiOutputClassifier
-
-from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix, accuracy_score, roc_curve, precision_recall_curve, auc, f1_score, recall_score, precision_score
+from sklearn.multioutput import MultiOutputClassifier, ClassifierChain
+from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix, accuracy_score, roc_curve, precision_recall_curve, auc, f1_score, recall_score, precision_score, zero_one_loss
 
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
@@ -407,8 +405,6 @@ def convert_lowercase(df: pd.DataFrame):
     df = df.applymap(lambda x: x.lower() if isinstance(x, str) else x)
     return df
 
-#########################################################
-
 # Define a function to remove URLs from text
 def remove_urls(df, text):
 
@@ -421,8 +417,6 @@ def remove_urls(df, text):
     # Apply the function to the 'text' column and create a new column 'clean_text'
     text = text.apply(remove_url(df[text]))
     return text
-
-#########################################################
 
 def remove_non_word(df: pd.DataFrame):
     """
@@ -437,8 +431,6 @@ def remove_non_word(df: pd.DataFrame):
     df = df.replace(to_replace=r'[^\w\s]', value='', regex=True)
     return df
 
-#########################################################
-
 def remove_digits(df: pd.DataFrame):
     """
     Remove digits from the dataset.
@@ -451,8 +443,6 @@ def remove_digits(df: pd.DataFrame):
     """
     df = df.replace(to_replace=r'\d', value='', regex=True)
     return df
-
-#########################################################
 
 def remove_stopwords(text):
     """
@@ -472,8 +462,6 @@ def remove_stopwords(text):
 
     # Join the words back into a single string
     return ' '.join(words)
-
-#########################################################
 
 def clean_text(df: pd.DataFrame, text_column):
     """
@@ -513,6 +501,70 @@ def tfidf_vectorize(X_train, X_test, max_features):
     print(f"X_train : {X_train_vec.shape[0]} lignes, {X_train_vec.shape[1]} colonnes (features)")
     print(f"X_test : {X_test_vec.shape[0]} lignes, {X_test_vec.shape[1]} colonnes (features)")
     return X_train_vec, X_test_vec
+
+#########################################################
+
+def runMOC(X_train, X_test, y_train, y_test):
+    """
+    Fonction pour exécuter un MultiOutputClassifier avec une régression logistique.
+    """
+    model = MultiOutputClassifier(LogisticRegression())
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    return y_pred
+
+def runECC(X_train, X_test, y_train, y_test):
+    """
+    Fonction pour exécuter un ClassifierChain avec un k-plus proche voisin.
+    """
+    base_model = KNeighborsClassifier(n_neighbors=5)  # Paramètre ajustable
+    chains = [ClassifierChain(base_model, order='random', random_state=i) for i in range(3)]  # Ex. 3 chaînes
+    
+    # Moyenne des prédictions des chaînes
+    preds = []
+    for chain in chains:
+        chain.fit(X_train, y_train)
+        preds.append(chain.predict(X_test))
+    
+    # Moyenne des résultats pour obtenir un seul tableau de prédictions
+    y_pred = sum(preds) / len(preds)
+    y_pred = (y_pred > 0.5).astype(int)  # Seuil pour binariser les prédictions
+    return y_pred
+
+def evaluate(y_test, y_pred):
+    """
+    Fonction pour évaluer les performances des prédictions.
+    """
+    metrics = {
+        "micro-F1": f1_score(y_test, y_pred, average='micro'),
+        "macro-F1": f1_score(y_test, y_pred, average='macro'),
+        "zero-one-loss": zero_one_loss(y_test, y_pred)
+    }
+    print("Classification Report:")
+    print(classification_report(y_test, y_pred))
+    return metrics
+
+def run_models(X_train, X_test, y_train, y_test):
+    """
+    Fonction principale pour exécuter et évaluer les modèles.
+    """
+    print("Running MultiOutputClassifier...")
+    moc_pred = runMOC(X_train, X_test, y_train, y_test)
+    print("Evaluating MultiOutputClassifier...")
+    moc_metrics = evaluate(y_test, moc_pred)
+    
+    print("\nRunning ClassifierChain...")
+    ecc_pred = runECC(X_train, X_test, y_train, y_test)
+    print("Evaluating ClassifierChain...")
+    ecc_metrics = evaluate(y_test, ecc_pred)
+    
+    print("\nResults Summary:")
+    print("MultiOutputClassifier Metrics:", moc_metrics)
+    print("ClassifierChain Metrics:", ecc_metrics)
+    return {"MOC": moc_metrics, "ECC": ecc_metrics}
+
+
+
 
 
 
