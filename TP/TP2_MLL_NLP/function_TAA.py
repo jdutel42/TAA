@@ -26,6 +26,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
 from sklearn.multioutput import MultiOutputClassifier, ClassifierChain
+from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix, accuracy_score, roc_curve, precision_recall_curve, auc, f1_score, recall_score, precision_score, zero_one_loss
 
 from imblearn.over_sampling import SMOTE
@@ -497,10 +498,13 @@ def tfidf_vectorize(X_train, X_test, max_features):
     vectorizer = TfidfVectorizer(max_features=max_features, stop_words='english')
     X_train_vec = vectorizer.fit_transform(X_train)
     X_test_vec = vectorizer.transform(X_test)
+    feature_names = vectorizer.get_feature_names_out()
     print(f"Les textes ont été vectorisés en {X_train_vec.shape[1]} features.")
     print(f"X_train : {X_train_vec.shape[0]} lignes, {X_train_vec.shape[1]} colonnes (features)")
     print(f"X_test : {X_test_vec.shape[0]} lignes, {X_test_vec.shape[1]} colonnes (features)")
-    return X_train_vec, X_test_vec
+    print(f"\nFeature_names - Vocabulaire : ")
+    print(f"\n{feature_names}")
+    return X_train_vec, X_test_vec, feature_names
 
 #########################################################
 
@@ -563,9 +567,23 @@ def run_models(X_train, X_test, y_train, y_test):
     print("ClassifierChain Metrics:", ecc_metrics)
     return {"MOC": moc_metrics, "ECC": ecc_metrics}
 
+#########################################################
 
+def extract_concept_SVD(n_concept, X_train_vec):
+    # Initialiser TruncatedSVD pour extraire 2 concepts
+    svd = TruncatedSVD(n_components=n_concept, random_state=42)
+    svd_matrix = svd.fit_transform(X_train_vec)
+    return svd, svd_matrix
 
+# Fonction pour afficher les concepts et leurs mots associés
+def print_top_words(model, feature_names, n_top_words):
+    for topic_idx, topic in enumerate(model.components_):
+        message = f"Concept #{topic_idx}: "
+        message += " ".join([feature_names[i] for i in topic.argsort()[:-n_top_words - 1:-1]])
+        print(message)
+    print()
 
+#########################################################
 
 
 
