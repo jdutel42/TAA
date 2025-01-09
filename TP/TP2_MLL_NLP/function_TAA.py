@@ -569,11 +569,12 @@ def run_models(X_train, X_test, y_train, y_test):
 
 #########################################################
 
-def extract_concept_SVD(n_concept, X_train_vec):
+def extract_concept_SVD(n_concept, X_train_vec, X_test_vec):
     # Initialiser TruncatedSVD pour extraire 2 concepts
     svd = TruncatedSVD(n_components=n_concept, random_state=42)
-    svd_matrix = svd.fit_transform(X_train_vec)
-    return svd, svd_matrix
+    svd_matrix_train = svd.fit_transform(X_train_vec)
+    svd_matrix_test = svd.transform(X_test_vec)
+    return svd, svd_matrix_train, svd_matrix_test
 
 # Fonction pour afficher les concepts et leurs mots associés
 def print_top_words(model, feature_names, n_top_words):
@@ -584,6 +585,9 @@ def print_top_words(model, feature_names, n_top_words):
     print()
 
 #########################################################
+
+
+
 
 
 
