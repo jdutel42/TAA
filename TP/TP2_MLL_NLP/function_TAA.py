@@ -26,8 +26,10 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfTransformer, TfidfVectorizer
 from sklearn.multioutput import MultiOutputClassifier, ClassifierChain
-from sklearn.decomposition import TruncatedSVD
+from sklearn.decomposition import TruncatedSVD, PCA
 from sklearn.metrics import roc_auc_score, classification_report, confusion_matrix, accuracy_score, roc_curve, precision_recall_curve, auc, f1_score, recall_score, precision_score, zero_one_loss
+
+from scipy.spatial.distance import cosine
 
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
@@ -37,9 +39,16 @@ from collections import Counter
 
 import re
 
+import multiprocessing
+
 import nltk
 from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
 # nltk.download()
+
+import gensim
+
 
 
 
@@ -391,9 +400,11 @@ def tune_lof(X_train, X_test, y_test, n_neighbors_list):
 
     return pd.DataFrame(results)
 
+
+# TP2
 #########################################################
 
-def convert_lowercase(df: pd.DataFrame):
+def convert_lowercase(text_column: pd.Series):
     """
     Convert all string columns to lowercase.
     
@@ -403,23 +414,20 @@ def convert_lowercase(df: pd.DataFrame):
     Returns:
     pd.DataFrame: The dataframe with all string columns converted to lowercase.
     """
-    df = df.applymap(lambda x: x.lower() if isinstance(x, str) else x)
-    return df
+    text_column = text_column.apply(lambda x: x.lower() if isinstance(x, str) else x)
+    return text_column
 
 # Define a function to remove URLs from text
-def remove_urls(df, text):
+def remove_urls(text_column: pd.Series):
 
     # Define a regex pattern to match URLs
     url_pattern = re.compile(r'https?://\S+')
 
-    def remove_url(text):
-        return url_pattern.sub('', text)
-
     # Apply the function to the 'text' column and create a new column 'clean_text'
-    text = text.apply(remove_url(df[text]))
-    return text
+    text_column = text_column.apply(lambda x: url_pattern.sub('', x) if isinstance(x, str) else x)
+    return text_column
 
-def remove_non_word(df: pd.DataFrame):
+def remove_non_word(text_column: pd.Series):
     """
     Remove non-word characters from the dataset.
     
@@ -429,10 +437,10 @@ def remove_non_word(df: pd.DataFrame):
     Returns:
     pd.DataFrame: The dataframe with non-word characters removed.
     """
-    df = df.replace(to_replace=r'[^\w\s]', value='', regex=True)
-    return df
+    text_column = text_column.str.replace(r'[^\w\s]', '', regex=True)
+    return text_column
 
-def remove_digits(df: pd.DataFrame):
+def remove_digits(text_column: pd.Series):
     """
     Remove digits from the dataset.
     
@@ -442,8 +450,8 @@ def remove_digits(df: pd.DataFrame):
     Returns:
     pd.DataFrame: The dataframe with digits removed.
     """
-    df = df.replace(to_replace=r'\d', value='', regex=True)
-    return df
+    text_column = text_column.str.replace(r'\d', '', regex=True)
+    return text_column
 
 def remove_stopwords(text):
     """
@@ -455,29 +463,20 @@ def remove_stopwords(text):
     Returns:
     str: The text with stopwords removed.
     """
-    # Tokenize the text
-    words = text.split()
+    stop_words = set(stopwords.words('english'))
+    if isinstance(text, str):
+        return ' '.join(word for word in text.split() if word not in stop_words)
+    return text
 
-    # Remove stopwords
-    words = [word for word in words if word not in stopwords.words('english')]
-
-    # Join the words back into a single string
-    return ' '.join(words)
-
-def clean_text(df: pd.DataFrame, text_column):
+def clean_text(df: pd.DataFrame, text_column: str):
     """
     Clean the text data by converting to lowercase, removing URLs, non-word characters, digits, and stopwords.
     """
-    df = convert_lowercase(df)
-
-    #df[text_column] = remove_urls(df, df[text_column])
-
-    df = remove_non_word(df)
-
-    df = remove_digits(df)
-
+    df[text_column] = convert_lowercase(df[text_column])
+    df[text_column] = remove_urls(df[text_column])
+    df[text_column] = remove_non_word(df[text_column])
+    df[text_column] = remove_digits(df[text_column])
     df[text_column] = df[text_column].apply(remove_stopwords)
-
     return df
 
 #########################################################
@@ -503,8 +502,32 @@ def tfidf_vectorize(X_train, X_test, max_features):
     print(f"X_train : {X_train_vec.shape[0]} lignes, {X_train_vec.shape[1]} colonnes (features)")
     print(f"X_test : {X_test_vec.shape[0]} lignes, {X_test_vec.shape[1]} colonnes (features)")
     print(f"\nFeature_names - Vocabulaire : ")
-    print(f"\n{feature_names}")
+    print(f"{feature_names}")
     return X_train_vec, X_test_vec, feature_names
+
+def tfidf_vectorize2(X_train, X_test, max_features, text_column_name):
+    """
+    Vectorize the texts using TF-IDF.
+    
+    Parameters:
+    train_texts (list of str): Training text data.
+    test_texts (list of str): Test text data.
+    max_features (int): Maximum number of features for TF-IDF.
+    
+    Returns:
+    X_train (sparse matrix): TF-IDF features for training data.
+    X_test (sparse matrix): TF-IDF features for test data.
+    """
+    vectorizer = TfidfVectorizer(max_features=max_features, stop_words='english')
+    X_train_tfidf_matrix = vectorizer.fit_transform(X_train[text_column_name])
+    X_test_tfidf_matrix = vectorizer.transform(X_test[text_column_name])
+    feature_names = vectorizer.get_feature_names_out()
+    print(f"Les textes ont été vectorisés en {X_train_tfidf_matrix.shape[1]} features.")
+    print(f"Matrice TF-IDF pour X_train : {X_train_tfidf_matrix.shape[0]} lignes, {X_train_tfidf_matrix.shape[1]} colonnes (features)")
+    print(f"Matrice TF-IDF pour X_test : {X_test_tfidf_matrix.shape[0]} lignes, {X_test_tfidf_matrix.shape[1]} colonnes (features)")
+    print(f"\nFeature_names (Vocabulaire) : ")
+    print(f"\n{feature_names}")
+    return X_train_tfidf_matrix, X_test_tfidf_matrix, feature_names
 
 #########################################################
 
@@ -569,12 +592,12 @@ def run_models(X_train, X_test, y_train, y_test):
 
 #########################################################
 
-def extract_concept_SVD(n_concept, X_train_vec, X_test_vec):
+def extract_concept_SVD(n_concept, X_train_tfidf_matrix, X_test_tfidf_matrix):
     # Initialiser TruncatedSVD pour extraire 2 concepts
     svd = TruncatedSVD(n_components=n_concept, random_state=42)
-    svd_matrix_train = svd.fit_transform(X_train_vec)
-    svd_matrix_test = svd.transform(X_test_vec)
-    return svd, svd_matrix_train, svd_matrix_test
+    X_train_svd_matrix = svd.fit_transform(X_train_tfidf_matrix)
+    X_test_svd_matrix = svd.transform(X_test_tfidf_matrix)
+    return svd, X_train_svd_matrix, X_test_svd_matrix
 
 # Fonction pour afficher les concepts et leurs mots associés
 def print_top_words(model, feature_names, n_top_words):
@@ -586,6 +609,187 @@ def print_top_words(model, feature_names, n_top_words):
 
 #########################################################
 
+def train_and_save_W2V_model(X_train, text_column_name :str, model_size=100, model_name='Word2vec_entraine.h5'):
+    corpus = X_train[text_column_name]
+
+    corpus = corpus.apply(lambda line : gensim.utils.simple_preprocess((line)))
+
+    cores=multiprocessing.cpu_count()
+
+    model_size=model_size
+    model=gensim.models.Word2Vec(corpus,vector_size=model_size,sg=0,window=5,min_count=2,workers=cores-1)
+
+    for i in range(100):
+        model.train(corpus,total_examples=len(corpus),epochs=1)
+        print(i, end=' ')
+
+    print(f"'{model_name}' model trained successfully !")
+
+    model.save(model_name)
+
+    print(f"'{model_name}' model saved successfully !")
+    
+    return model
+
+#########################################################
+
+def load_W2V_model(model_name):
+    model=gensim.models.Word2Vec.load(model_name)
+
+    print(f"'{model_name}' model loaded successfully !")
+
+    return model
+
+#########################################################
+
+def plot_word_2d(model, word):
+    word_vector=model.wv[word]
+    similar_words=model.wv.most_similar(word,topn=10)
+    similar_words=[word]+[x[0] for x in similar_words]
+    similar_vectors=[word_vector]+[model.wv[x] for x in similar_words[1:]]
+    similar_vectors=np.array(similar_vectors)
+    pca=PCA(n_components=2)
+    result=pca.fit_transform(similar_vectors)
+    plt.scatter(result[:,0],result[:,1])
+    for i,word in enumerate(similar_words):
+        plt.annotate(word,xy=(result[i,0],result[i,1]))
+    plt.show()
+
+#########################################################
+
+def simple_plot_W2V_heatmap(array):
+    fig_dims = (20, 1)
+    fig, ax = plt.subplots(figsize=fig_dims)
+    sns.heatmap([array], cmap = 'YlGnBu')
+    plt.show()
+
+def plot_W2V_heatmap(model, words, cmap='YlGnBu', figsize_per_vector=(20, 1)):
+    """
+    Plot a heatmap for Word2Vec vectors.
+    
+    Parameters:
+    model (gensim.models.Word2Vec): Trained Word2Vec model.
+    words (list of str): List of words to plot.
+    cmap (str, optional): Colormap for the heatmap. Default is 'YlGnBu'.
+    figsize_per_vector (tuple, optional): Tuple specifying figure size per vector. Default is (20, 1).
+    """
+    # Extract vectors for the given words
+    vectors = [model.wv[word] for word in words]
+
+    # Ensure vectors are in 2D format
+    num_vectors = len(vectors)
+    fig_height = figsize_per_vector[1] * num_vectors
+    fig_width = figsize_per_vector[0]
+    
+    # Plot the heatmap
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+    sns.heatmap(vectors, cmap=cmap, cbar=True, ax=ax, xticklabels=False)
+    
+    # Set y-ticks with labels for words
+    ax.set_yticks([i + 0.5 for i in range(num_vectors)])
+    ax.set_yticklabels(words)
+    
+    ax.set_ylabel("Words")
+    plt.title("Word2Vec Heatmap")
+    plt.show()
+
+#########################################################
+
+def less_similar_word(model, words):
+    """
+    Find the word that is least similar to the given list of words.
+    
+    Parameters:
+    model (gensim.models.Word2Vec): The Word2Vec model.
+    words (list of str): List of words.
+    
+    Returns:
+    str: The word that is least similar to the given list of words.
+    """
+    least_similar_word = model.wv.doesnt_match(words)
+    print(f"Le mot le moins similaire parmi {words} est '{least_similar_word}'.")
+    return least_similar_word
+
+def most_similar_words(model, close_to: list[str], far_from=None, topn: int = 3):
+    """
+    Find the most similar words to a given set of words while being dissimilar to another set of words.
+    
+    Parameters:
+    model (gensim.models.Word2Vec): The word embedding model.
+    close_to (list[str] | str): Words to which the result should be similar. Can be a single word or a list.
+    far_from (list[str] | str | None): Words to which the result should be dissimilar. Can be a single word or a list. Default is None.
+    topn (int): Number of top similar words to return. Default is 3.
+    
+    Returns:
+    list[tuple]: A list of tuples containing words and their similarity scores.
+    """
+    # On vérifie que `close_to` est une list
+    if isinstance(close_to, str):
+        close_to = [close_to]
+    # On vérifie que `far_from` est une list or None
+    if far_from is None:
+        far_from = []
+    elif isinstance(far_from, str):
+        far_from = [far_from]
+    
+    # Check if all words are in the model's vocabulary
+    all_words = close_to + far_from
+    missing_words = [word for word in all_words if word not in model.wv]
+    if missing_words:
+        raise ValueError(f"The following words are not in the model's vocabulary: {missing_words}")
+    
+    # Find similar words
+    similar_words = model.wv.most_similar(positive=close_to, negative=far_from, topn=topn)
+
+    print(f"Les mots les plus similaires à {close_to} et dissimilaires à {far_from} sont:")
+
+    return similar_words
+
+#########################################################
+
+def word2vec_generator(text_column, model, vector_size=100):
+    """
+    Génère des représentations Word2Vec moyennes pour une liste de textes.
+    
+    Parameters:
+    texts (list of list[str]): Liste de listes de mots.
+    model (gensim.models.Word2Vec): Modèle Word2Vec.
+    vector_size (int): Taille des vecteurs du modèle Word2Vec.
+    
+    Returns:
+    pd.DataFrame: DataFrame où chaque ligne est la moyenne des vecteurs des mots d'un texte.
+    """
+    # Étape 1 : Prétraitement des données (tokenisation)
+    tokenized_texts = text_column.apply(word_tokenize).tolist()
+
+    dict_word2vec = {}
+    
+    for index, word_list in enumerate(tokenized_texts):
+        arr = np.zeros(vector_size)  # Initialisation du vecteur de taille `vector_size`
+        nb_word = 0
+        
+        for word in word_list:
+            try:
+                arr += model.wv[word]  # Accès correct au vecteur
+                nb_word += 1
+            except KeyError:
+                continue  # Ignore les mots absents du vocabulaire
+        
+        # Ajout du vecteur normalisé dans le dictionnaire
+        dict_word2vec[index] = arr / nb_word if nb_word > 0 else arr
+    
+    # Conversion du dictionnaire en DataFrame
+    df_word2vec = pd.DataFrame.from_dict(dict_word2vec, orient='index')
+    
+    print(f"Les représentations Word2Vec moyennes ont été générées pour {len(tokenized_texts)} textes.")
+
+    return df_word2vec
+
+
+
+
+
+
 
 
 
@@ -594,7 +798,7 @@ def print_top_words(model, feature_names, n_top_words):
 
 
 #########################################################
-#                 Fonctions à améliorer                 #
+#         Fonctions non utilisées (à améliorer)         #
 #########################################################
 
 def choose_scaler(scaler_type='StandardScaler'):
@@ -764,17 +968,6 @@ def evaluate_model(y_true, y_pred):
         'f1_score': f1,
         'confusion_matrix': cm
     }
-
-
-
-
-
-
-
-
-
-
-
 
 def apply_sampling(X_train, y_train, sampling_type):
     """
