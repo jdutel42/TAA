@@ -790,7 +790,10 @@ def word2vec_generator(text_column, model, vector_size=100):
 # TP3
 #########################################################
 
-def partial_labeling(data, label_column, labeled_percentage):
+import numpy as np
+import pandas as pd
+
+def partial_labeling(data, label_column, labeled_percentage, random_seed=None):
     """
     Rendre la base partiellement étiquetée.
 
@@ -798,37 +801,42 @@ def partial_labeling(data, label_column, labeled_percentage):
         data (pd.DataFrame): Le DataFrame contenant les données.
         label_column (str): Le nom de la colonne des étiquettes.
         labeled_percentage (float): Le pourcentage des données labélisées (entre 0 et 100).
+        random_seed (int, optional): La graine pour garantir la reproductibilité. Par défaut, aucune graine n'est définie.
 
     Returns:
         pd.DataFrame: Le DataFrame avec des étiquettes partiellement masquées.
     """
     data = data.copy()
 
+    initial_class_counts = data[label_column].value_counts(dropna=False)
+
     # Vérification du pourcentage
     if not (0 <= labeled_percentage <= 100):
         raise ValueError("Le pourcentage des données labélisées doit être entre 0 et 100.")
 
-    count = data['Label'].value_counts()
-    print(f"Avant étiquetage, le dataset contient {data['Label'].nunique()} classes.")
-    print(f"Répartition des classes : {count}\n")
-
-    # Calcul du nombre d'échantillons à conserver avec étiquettes
     total_samples = len(data)
     num_labeled_samples = int(total_samples * (labeled_percentage / 100))
 
     # Mélanger les indices des données
-    shuffled_indices = np.random.permutation(total_samples)
+    if random_seed is not None:
+        np.random.seed(random_seed)
+    shuffled_indices = np.random.permutation(data.index)
 
     # Masquer les étiquettes des données non sélectionnées
     unlabeled_indices = shuffled_indices[num_labeled_samples:]
     data.loc[unlabeled_indices, label_column] = np.nan
 
-    count = data['Label'].value_counts()
-    print(f"\nLe dataset a été partiellement étiqueté avec {labeled_percentage}% des données labélisées.")
-    print(f"Après étiquetage, lse dataset contient maintenant {data['Label'].nunique()} classes.")
-    print(f"Répartition des classes : {count}\n")
+    # Informations avant et après étiquetage
+    labeled_class_counts = data[label_column].value_counts(dropna=False)
+
+    print(f"Avant étiquetage, le dataset contient {len(initial_class_counts)} classes uniques.")
+    print(f"Répartition initiale des classes :\n{initial_class_counts}\n")
+    print(f"Le dataset a été partiellement étiqueté avec {labeled_percentage}% des données labélisées.")
+    print(f"Après étiquetage, le dataset contient maintenant {len(labeled_class_counts)} classes (y compris NaN).")
+    print(f"Répartition des classes après étiquetage :\n{labeled_class_counts}\n")
 
     return data
+
 
 
 
