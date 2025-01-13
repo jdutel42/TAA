@@ -808,6 +808,10 @@ def partial_labeling(data, label_column, labeled_percentage):
     if not (0 <= labeled_percentage <= 100):
         raise ValueError("Le pourcentage des données labélisées doit être entre 0 et 100.")
 
+    count = data['Label'].value_counts()
+    print(f"Avant étiquetage, le dataset contient {data['Label'].nunique()} classes.")
+    print(f"Répartition des classes : {count}\n")
+
     # Calcul du nombre d'échantillons à conserver avec étiquettes
     total_samples = len(data)
     num_labeled_samples = int(total_samples * (labeled_percentage / 100))
@@ -818,6 +822,11 @@ def partial_labeling(data, label_column, labeled_percentage):
     # Masquer les étiquettes des données non sélectionnées
     unlabeled_indices = shuffled_indices[num_labeled_samples:]
     data.loc[unlabeled_indices, label_column] = np.nan
+
+    count = data['Label'].value_counts()
+    print(f"\nLe dataset a été partiellement étiqueté avec {labeled_percentage}% des données labélisées.")
+    print(f"Après étiquetage, lse dataset contient maintenant {data['Label'].nunique()} classes.")
+    print(f"Répartition des classes : {count}\n")
 
     return data
 
