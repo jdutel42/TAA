@@ -39,6 +39,8 @@ from collections import Counter
 
 import re
 
+import random
+
 import multiprocessing
 
 import nltk
@@ -785,6 +787,39 @@ def word2vec_generator(text_column, model, vector_size=100):
 
     return df_word2vec
 
+# TP3
+#########################################################
+
+def partial_labeling(data, label_column, labeled_percentage):
+    """
+    Rendre la base partiellement étiquetée.
+
+    Parameters:
+        data (pd.DataFrame): Le DataFrame contenant les données.
+        label_column (str): Le nom de la colonne des étiquettes.
+        labeled_percentage (float): Le pourcentage des données labélisées (entre 0 et 100).
+
+    Returns:
+        pd.DataFrame: Le DataFrame avec des étiquettes partiellement masquées.
+    """
+    data = data.copy()
+
+    # Vérification du pourcentage
+    if not (0 <= labeled_percentage <= 100):
+        raise ValueError("Le pourcentage des données labélisées doit être entre 0 et 100.")
+
+    # Calcul du nombre d'échantillons à conserver avec étiquettes
+    total_samples = len(data)
+    num_labeled_samples = int(total_samples * (labeled_percentage / 100))
+
+    # Mélanger les indices des données
+    shuffled_indices = np.random.permutation(total_samples)
+
+    # Masquer les étiquettes des données non sélectionnées
+    unlabeled_indices = shuffled_indices[num_labeled_samples:]
+    data.loc[unlabeled_indices, label_column] = np.nan
+
+    return data
 
 
 
