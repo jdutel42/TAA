@@ -609,27 +609,38 @@ def print_top_words(model, feature_names, n_top_words):
 
 #########################################################
 
-def train_and_save_W2V_model(X_train, text_column_name :str, model_size=100, model_name='Word2vec_entraine.h5'):
-    corpus = X_train[text_column_name]
+def train_and_save_w2v_model(corpus, model_size=100, model_name='Word2vec_entraine.h5', use_skip_gram=False):
+    """
+    Entraîne et sauvegarde un modèle Word2Vec en utilisant Skip-gram ou CBOW.
 
-    corpus = corpus.apply(lambda line : gensim.utils.simple_preprocess((line)))
+    Parameters:
+    corpus (pd.Series): Corpus textuel (une phrase par ligne).
+    model_size (int): Taille des vecteurs.
+    model_name (str): Nom du fichier pour sauvegarder le modèle.
+    use_skip_gram (bool): Utiliser Skip-gram (True) ou CBOW (False).
 
-    cores=multiprocessing.cpu_count()
-
-    model_size=model_size
-    model=gensim.models.Word2Vec(corpus,vector_size=model_size,sg=0,window=5,min_count=2,workers=cores-1)
-
-    for i in range(100):
-        model.train(corpus,total_examples=len(corpus),epochs=1)
-        print(i, end=' ')
-
-    print(f"'{model_name}' model trained successfully !")
-
-    model.save(model_name)
-
-    print(f"'{model_name}' model saved successfully !")
+    Returns:
+    gensim.models.Word2Vec: Modèle Word2Vec entraîné.
+    """
+    # Prétraitement du corpus
+    tokenized_corpus = corpus.apply(gensim.utils.simple_preprocess)
     
+    # Entraînement du modèle
+    model = gensim.models.Word2Vec(
+        sentences=tokenized_corpus,
+        vector_size=model_size,
+        sg=1 if use_skip_gram else 0,  # Utilisation de Skip-gram ou CBOW
+        window=5,
+        min_count=2,
+        workers=multiprocessing.cpu_count() - 1,
+        epochs=10
+    )
+    
+    # Sauvegarde du modèle
+    model.save(model_name)
+    print(f"Modèle Word2Vec '{model_name}' (Skip-gram: {use_skip_gram}) entraîné et sauvegardé avec succès.")
     return model
+
 
 #########################################################
 
